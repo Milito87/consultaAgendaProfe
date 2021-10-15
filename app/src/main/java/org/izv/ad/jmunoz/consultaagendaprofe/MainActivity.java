@@ -5,10 +5,13 @@ import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.preference.PreferenceManager;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
@@ -106,6 +109,12 @@ public class MainActivity extends AppCompatActivity {
         etPhone=findViewById(R.id.etPhone);
         tvResultado=findViewById(R.id.tvResultado);
 
+        SharedPreferences preferencias = getPreferences(Context.MODE_PRIVATE);
+        String lastSearch = preferencias.getString(getString(R.string.last_search), "");
+        if(!lastSearch.isEmpty()) {
+            etPhone.setText(lastSearch);
+        }
+
     }
 
     @RequiresApi(api = Build.VERSION_CODES.M)//si la version es inferior a 23
@@ -117,8 +126,34 @@ public class MainActivity extends AppCompatActivity {
 
     private void search() {
 
-        //tvResultado.setText("pulsado");
+        String phone = etPhone.getText().toString();
 
+
+        tvResultado.setText("");
+
+        SharedPreferences prefenciasActividad = getPreferences(Context.MODE_PRIVATE);
+        SharedPreferences.Editor ed1 = prefenciasActividad.edit();
+        ed1.putString(getString(R.string.last_search), phone);
+        ed1.commit();
+
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this /* Activity context */);
+        String email = sharedPreferences.getString(getString(R.string.email), getString(R.string.no_email));
+
+        phone = searchFormat(phone);
+        /*
+        //formas de guardar o editar preferencias compartidas
+        SharedPreferences p1 = getSharedPreferences("preferencias", Context.MODE_PRIVATE);
+        SharedPreferences p2 = getPreferences(Context.MODE_PRIVATE);
+        //SharedPreferences = PreferenceManager.getDefaultSharedPreferences --> nombre paquete_preferences.xml
+        // ^ se utiliza cuando usamos settingActivity para guardar preferencias
+        SharedPreferences.Editor ed1 = p1.edit();
+        SharedPreferences.Editor ed2 = p2.edit();
+
+        ed1.putString("ved1", "v1"); //preferencias compartidas.xml
+        ed2.putString("ved2", "v2"); //se llama igual que la actividad
+        */
+        //tvResultado.append(email + "\n");
+        
         /*buscar entre los contactos -> ContentProvider permite acceder a cualquier cosa almacenada ajena a la app
         ContentResolver -> consultor de contenido
         uri: protocolo://direccion/ruta/recurso*/
@@ -130,13 +165,12 @@ public class MainActivity extends AppCompatActivity {
                 "sortOrder" //orden de retorno de las columnas seleccionadas
         );*/
 
-        Uri uri = ContactsContract.Contacts.CONTENT_URI;
+        /*Uri uri = ContactsContract.Contacts.CONTENT_URI;
         String proyeccion[] = new String[]{ContactsContract.Contacts.DISPLAY_NAME};
         String seleccion = ContactsContract.Contacts.IN_VISIBLE_GROUP + " = ? and " +
                            ContactsContract.Contacts.HAS_PHONE_NUMBER + "= ?";
         String argumentos[] = new String[]{"1","1"};
-        //seleccion=null;
-        //argumentos=null;
+
         String orden = ContactsContract.Contacts.DISPLAY_NAME + " collate localized asc"; //collate localized se adapta al idioma del dispositivo para ordenar
         Cursor cursor = getContentResolver().query(uri, proyeccion, seleccion, argumentos, orden);
         String[] columnas=cursor.getColumnNames();
@@ -148,35 +182,45 @@ public class MainActivity extends AppCompatActivity {
         while(cursor.moveToNext()){
             displayName=cursor.getString(columna);
             Log.v(TAG, displayName);
-        }
+        }*/
+
 
         Uri uri2 = ContactsContract.CommonDataKinds.Phone.CONTENT_URI;
         String proyeccion2[] = new String[]{ContactsContract.CommonDataKinds.Phone.NUMBER, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME};
-        String seleccion2 = ContactsContract.CommonDataKinds.Phone.NUMBER+ " = ?";
-        String argumentos2[] = new String[]{etPhone.getText().toString()};
+        String seleccion2 = ContactsContract.CommonDataKinds.Phone.NUMBER+ " like ?";
+        String argumentos2[] = new String[]{phone};
         String orden2 = ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME;
         Cursor cursor2 = getContentResolver().query(uri2, proyeccion2, seleccion2, argumentos2, orden2);
 
         String[] columnas2=cursor2.getColumnNames();
-        for(String s: columnas2){
-            Log.v(TAG, s);
-        }
+
         String nombre, numero;
         int columnaD=cursor2.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);
         int columnaN=cursor2.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
         while(cursor2.moveToNext()){
             nombre=cursor2.getString(columnaD);
             numero=cursor2.getString(columnaN);
-            Log.v(TAG, nombre + ": " + numero);
+
             for(String s: columnas2) {
                 int pos = cursor2.getColumnIndex(s);
                 String valor = cursor2.getString(pos);
-                Log.v(TAG, pos + " " + s + " "+ valor);
+                tvResultado.append(s + " " + valor + "\n");
+
             }
         }
 
 
 
+    }
+
+    private String searchFormat(String phone) {
+
+        String newString = "";
+
+        for(char ch: phone.toCharArray()){
+            newString += ch + "%";
+        }
+        return newString;
     }
 
     private void searchIfPermited() {
